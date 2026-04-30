@@ -230,13 +230,24 @@ User Prompt: ${emailPrompt}`;
   };
 
   const exportConfig = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "hallpass-profile.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    try {
+      const profileJson = JSON.stringify(normalizeConfig(config), null, 2);
+      const blob = new Blob([profileJson], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchorNode = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+      downloadAnchorNode.href = url;
+      downloadAnchorNode.download = `hallpass-profile-${timestamp}.json`;
+      downloadAnchorNode.style.display = 'none';
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Profile export started");
+    } catch (e) {
+      toast.error("Error exporting profile");
+    }
   };
 
   const importConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
