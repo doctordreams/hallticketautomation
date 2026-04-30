@@ -104,6 +104,21 @@ function readProfileConfig(profile: any) {
   return profile;
 }
 
+async function readJsonResponse(res: Response) {
+  const contentType = res.headers.get('content-type') || '';
+  const text = await res.text();
+
+  if (contentType.includes('application/json')) {
+    return text ? JSON.parse(text) : {};
+  }
+
+  if (text.includes('Authentication Required') || text.includes('Vercel Authentication')) {
+    throw new Error('Vercel deployment protection is blocking this API request. Disable Vercel Authentication for this project or use a public production domain.');
+  }
+
+  throw new Error(`Server returned non-JSON response (${res.status}). ${text.slice(0, 120) || res.statusText}`);
+}
+
 export default function App() {
   const [config, setConfig] = useState<any>({});
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
@@ -344,7 +359,7 @@ User Prompt: ${emailPrompt}`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: config.airtableToken, baseId: config.airtableBaseId })
       });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error);
       setTables(data.tables);
       toast.success(`Found ${data.tables.length} tables.`);
@@ -364,11 +379,10 @@ User Prompt: ${emailPrompt}`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config })
       });
+      const data = await readJsonResponse(res);
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to fetch');
+        throw new Error(data.error || 'Failed to fetch');
       }
-      const data = await res.json();
       setStudents(data.records);
       setSelectedStudents(new Set(data.records.map((r: any) => r.id)));
       toast.success(`Fetched ${data.records.length} students`);
@@ -460,7 +474,7 @@ User Prompt: ${emailPrompt}`;
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ student, config })
         });
-        const data = await res.json();
+        const data = await readJsonResponse(res);
         if (res.ok && data.success) {
           setProcessingStatus(prev => ({ ...prev, [student.id]: { status: 'success' } }));
           addLog(`[SUCCESS] Email sent for: ${student.hallTicketNo || student.studentName}`);
@@ -944,7 +958,7 @@ User Prompt: ${emailPrompt}`;
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ config })
                           });
-                          const data = await colsRes.json();
+                          const data = await readJsonResponse(colsRes);
                           if (data.error) throw new Error(data.error);
 
                           const columns = data.columns;
