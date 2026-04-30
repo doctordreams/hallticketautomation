@@ -39,6 +39,35 @@ const REQUIRED_MAPPING_KEYS = [
   'colTestCentreName',
 ];
 
+const PROFILE_CONFIG_KEYS = [
+  'airtableToken',
+  'airtableBaseId',
+  'airtableTable',
+  'statusFetch',
+  'statusSuccess',
+  'optGenerate',
+  'optEmail',
+  'colHallTicketNo',
+  'colDistrict',
+  'colStudentName',
+  'colFather',
+  'colMother',
+  'colTestCentreName',
+  'colTestTime',
+  'colEmail',
+  'colHallTicketUrl',
+  'geminiApiKey',
+  'googleServiceAccount',
+  'googleTemplateId',
+  'emailProvider',
+  'smtpHost',
+  'smtpPort',
+  'smtpUser',
+  'smtpPass',
+  'emailSubject',
+  'emailBody',
+];
+
 function normalizeConfig(data: any = {}) {
   const merged: any = { ...DEFAULT_CONFIG, ...data };
   REQUIRED_MAPPING_KEYS.forEach(key => {
@@ -47,6 +76,32 @@ function normalizeConfig(data: any = {}) {
     }
   });
   return merged;
+}
+
+function buildProfile(config: any, filterText: string) {
+  const normalizedConfig = normalizeConfig(config);
+  const exportedConfig = PROFILE_CONFIG_KEYS.reduce((profile: any, key) => {
+    profile[key] = normalizedConfig[key] ?? '';
+    return profile;
+  }, {});
+
+  return {
+    profileType: 'hallpass-admin-profile',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    config: exportedConfig,
+    ui: {
+      dashboardFilter: filterText,
+    },
+  };
+}
+
+function readProfileConfig(profile: any) {
+  if (profile?.profileType === 'hallpass-admin-profile' && profile.config) {
+    return profile.config;
+  }
+
+  return profile;
 }
 
 export default function App() {
@@ -231,7 +286,7 @@ User Prompt: ${emailPrompt}`;
 
   const exportConfig = () => {
     try {
-      const profileJson = JSON.stringify(normalizeConfig(config), null, 2);
+      const profileJson = JSON.stringify(buildProfile(config, filterText), null, 2);
       const blob = new Blob([profileJson], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const downloadAnchorNode = document.createElement('a');
@@ -258,7 +313,14 @@ User Prompt: ${emailPrompt}`;
         try {
           const text = e.target?.result as string;
           const parsed = JSON.parse(text);
-          setConfig(normalizeConfig(parsed));
+          const nextConfig = normalizeConfig(readProfileConfig(parsed));
+          setConfig(nextConfig);
+          if (parsed?.ui?.dashboardFilter !== undefined) {
+            setFilterText(String(parsed.ui.dashboardFilter || ''));
+          }
+          set(CONFIG_STORAGE_KEY, nextConfig).catch(() => {
+            toast.error("Profile loaded, but failed to save permanently.");
+          });
           toast.success("Profile loaded and saved.");
         } catch (err) {
           toast.error("Invalid config profile format");
