@@ -25,8 +25,7 @@ export async function createApp({ serveFrontend = true } = {}) {
     
     try {
       // NOTE: Requires schema.bases:read scope on the PAT
-      const fetchApi = (await import('node-fetch')).default || globalThis.fetch;
-      const response = await fetchApi(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+      const response = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
